@@ -1,0 +1,65 @@
+# config.yaml -- Ov-SGG training configuration
+# Pass to train.py via:  torchrun ... train.py --config config.yaml
+
+# WandB keys
+#wandb_api_key: "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"
+run_name: "ov_sgg_baseline_closed_gqa"
+
+# --- Dataset paths ---
+# data_root must contain:
+#   vg/train.json, vg/test.json      (Visual Genome)
+#   gqa/train.json, gqa/test.json    (GQA)
+# Image paths inside each JSON are absolute and used directly.
+data_root: "/home/venky/koushikpavan/gnn_ovsgg_old_jan/data"
+
+# Which dataset to use: "vg" | "gqa" | ignored when use_combined_dataset=true
+dataset: "gqa"
+
+# OV-SGG split setting (GQA only).
+# Options: closed_vocab | novel_obj | novel_relationships | novel_obj_and_relationships
+# Set to null (or remove) for Visual Genome.
+setting: "closed_vocab"
+use_combined_dataset: false      # true = joint VG + GQA training
+max_objects: 20                  # cap nodes per image; larger = richer graphs but more memory
+
+# --- Model checkpoints ---
+gdino_model_id: "IDEA-Research/grounding-dino-base"
+qwen_model_id:  "Qwen/Qwen3-VL-8B-Instruct"        # Qwen3-VL
+clip_model_id:  "openai/clip-vit-base-patch32"      # frozen; larger variants give richer features
+
+# --- GNN architecture ---
+hidden_dim: 256        # hidden size for node/edge projectors, SAGE layers, edge-scorer MLP
+num_sage_layers: 2     # GraphSAGE rounds; more = larger receptive field, risk of over-smoothing
+dropout: 0.1           # dropout inside edge-scorer MLP (training only)
+
+# --- Loss weights ---
+pos_weight: 2.0        # BCE positive-class weight; set ~(num_neg / num_pos) for class balance
+l1_weight: 5.0         # scale on L1 coordinate regression term
+giou_weight: 2.0       # scale on GIoU term (non-zero grad even for non-overlapping boxes)
+edge_loss_weight: 1.0  # global scale on edge BCE branch in total loss
+box_loss_weight: 1.0   # global scale on box regression branch in total loss
+
+# --- Training schedule ---
+epochs: 10
+lr: 1.0e-4             # peak LR (after warmup; cosine decays from here)
+weight_decay: 1.0e-4   # AdamW L2 regularisation on weights
+warmup_steps: 500      # linear LR ramp duration (steps, not epochs)
+steps_per_epoch: 1000  # approximate; used only to set the cosine decay horizon
+
+# --- Detection thresholds ---
+box_threshold: 0.30    # Grounding DINO min objectness score to retain a box
+text_threshold: 0.25   # Grounding DINO min text-alignment score for label assignment
+nms_iou_thr: 0.5       # NMS IoU cutoff for deduplicating detections
+edge_score_thr: 0.5    # GNN sigmoid cutoff; lower = higher recall, higher = higher precision
+
+# --- Relation proposal pruning (geom.py) ---
+enable_relation_pruning: true
+spatial_overlap_thr: 0.0    # drop pair only if IoU < thr AND centroid distance > spatial_dist_thr
+spatial_dist_thr: 0.85      # centroid distance normalised by image diagonal
+neg_keep_ratio: 3.0         # keep round(neg_keep_ratio * n_real) synthetic negatives
+no_relation_predicate: "no relation"
+gt_match_iou_floor: 0.0     # minimum IoU when mapping GT boxes to current boxes for reinjection
+
+# --- Output ---
+save_dir: "./models"   # directory for checkpoint files; created automatically if absent
+cache_file: "/home/venky/koushikpavan/gnnovsgg_new_april/vlm_cache/merged_cache_gqa_closed_vocab_train.json"
