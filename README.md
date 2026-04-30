@@ -54,7 +54,7 @@ python train.py
 
 ## Inference
 
-### Quick Test on a Single Image
+### Quick Test on a Single Image using a handmade refiner
 
 1. Set your image path in `lightweight_pair_vlm.py`
 2. Run:
